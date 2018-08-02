@@ -1,0 +1,24 @@
+C:\Users\kolaf\Documents\pcb\stol.cir
+* File created from design "C:\Users\kolaf\Documents\pcb\stol.sch" using DesignSpark 21.0.4
+
+ToController N0025 N0026 N0027 N0008 ???? 
+FromJoystick VDD N0036 VI@FromJoystick ???? 
+VI@FromJoystick N0039 N0037 0 
+R1 N0026 N0001 470 
+R2 N0001 N0025 470 
+LeftRight GND VDD ????  
+ForwardAft GND VDD VI@ForwardAft ???? 
+VI@ForwardAft SDA SCL 0 
+Xi2cDigital SCL SDA unconnected1 GND unconnected2 unconnected3 unconnected4 unconnected5 unconnected6 unconnected7 CONN_SIL_10 
+XPower unconnected8 unconnected9 unconnected10 unconnected11 VDD GND GND unconnected12 CONN_SIL_8 
+Digital unconnected13 unconnected14 CONN_SIL_8 
+XPWM_X GND VDD N0053 CONN_SIL_3 
+XPWM_Y GND VDD N0054 CONN_SIL_3 
+
+.tran 0 1m 0 20u
+.options Vntol=1u Abstol=1p Reltol=1m
+.temp 27
+
+
+
+.end
