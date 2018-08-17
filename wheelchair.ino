@@ -20,15 +20,16 @@ Adafruit_MCP4725 dac_y; // forwardaft
 #define JOY_V2 A4
 
 #define MAXIMUM_VOLTAGE 3.5
-#define VOLTAGE_SWING 1
+#define VOLTAGE_SWING 1.2
 #define REFERENCE_VOLTAGE 5
+#define MIDDLE_VOLTAGE 2.54
 
 volatile int pwm_value_x = 0;
 volatile int prev_time_x = 0;
 volatile int pwm_value_y = 0;
 volatile int prev_time_y = 0;
 int output_x = 0, output_y = 0, minimum_output = 0, maximum_output = 4095;
-int max_x = 1500, min_x = 1500, max_y = 1500, min_y = 1500;
+int max_x = 0, min_x = 2000, max_y = 0, min_y = 2000;
 
 void change_x() {
   uint8_t trigger = getPinChangeInterruptTrigger(digitalPinToPCINT(X_PIN));
@@ -56,9 +57,9 @@ void setup() {
   attachPinChangeInterrupt(digitalPinToPinChangeInterrupt(Y_PIN), change_y, CHANGE);
   dac_x.begin(MCP4725_ADDR_X); // The I2C Address: Run the I2C Scanner if you're not sure
   dac_y.begin(MCP4725_ADDR_Y);
-  minimum_output = 2.5*4096/REFERENCE_VOLTAGE - VOLTAGE_SWING*4096/REFERENCE_VOLTAGE;
-  maximum_output = 2.5*4096/REFERENCE_VOLTAGE + VOLTAGE_SWING*4096/REFERENCE_VOLTAGE;
- 
+  minimum_output = (MIDDLE_VOLTAGE - VOLTAGE_SWING) * 4096 / REFERENCE_VOLTAGE;
+  maximum_output = (MIDDLE_VOLTAGE + VOLTAGE_SWING) * 4096 / REFERENCE_VOLTAGE;
+
 }
 
 
@@ -79,7 +80,7 @@ void loop() {
     dac_x.setVoltage(output_x, false);
     dac_y.setVoltage(output_y, false);
   }
-  /*
+
   Serial.print(pwm_value_x);
   Serial.print(", ");
   Serial.print(output_x);
@@ -87,16 +88,16 @@ void loop() {
   Serial.print(pwm_value_y);
   Serial.print(", ");
   Serial.println(output_y);
-*/
-  Serial.print(" JOY_X_1: ");
-  Serial.print(analogRead(JOY_X_1));
-  Serial.print(" JOY_X_2: ");
-  Serial.print(analogRead(JOY_X_2));
-  Serial.print(" JOY_Y_1: ");
-  Serial.print(analogRead(JOY_Y_1));
-  Serial.print(" JOY_Y_2: ");
-  Serial.print(analogRead(JOY_Y_2));
-  Serial.print(" JOY_V2: ");
-  Serial.println(analogRead(JOY_V2));
-  
+  /*
+    Serial.print(" JOY_X_1: ");
+    Serial.print(analogRead(JOY_X_1));
+    Serial.print(" JOY_X_2: ");
+    Serial.print(analogRead(JOY_X_2));
+    Serial.print(" JOY_Y_1: ");
+    Serial.print(analogRead(JOY_Y_1));
+    Serial.print(" JOY_Y_2: ");
+    Serial.print(analogRead(JOY_Y_2));
+    Serial.print(" JOY_V2: ");
+    Serial.println(analogRead(JOY_V2));
+  */
 }
