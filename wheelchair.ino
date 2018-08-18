@@ -33,7 +33,7 @@ volatile int pwm_value_switch = 0;
 volatile int prev_time_switch = 0;
 int output_x = 0, output_y = 0, minimum_output = 0, maximum_output = 4095, joystick_output_x = 0, joystick_output_y = 0;
 int max_x = 0, min_x = 2000, max_y = 0, min_y = 2000;
-bool joystick_in_control = false;
+bool joystick_in_control = false, overridden = false;
 
 void change_x() {
   uint8_t trigger = getPinChangeInterruptTrigger(digitalPinToPCINT(X_PIN));
@@ -80,22 +80,22 @@ void setup() {
 
 
 void loop() {
-  joystick_output_x = map(analogRead(JOY_X_1), 0, 1023, 0, 4095);
-  joystick_output_y = map(analogRead(JOY_Y_1), 0, 1023, 0, 4095);
+  joystick_output_x = map(analogRead(JOY_X_1), 0, 1023, minimum_output, maximum_output);
+  joystick_output_y = map(analogRead(JOY_Y_1), 0, 1023, minimum_output, maximum_output);
   if (pwm_value_switch < 1500) {
     joystick_in_control = true;
-  } else {
+    overridden = false;
+  } else if (!overridden) {
     joystick_in_control = false;
   }
   // Big joystick movement overrides RC interface
   if (abs(joystick_output_x - 2000) > 500 || abs(joystick_output_y - 2000) > 500) {
-    joystick_in_control = true;
+    // Both outputs of the same joystick access should never be high at the same time
+    if (!(analogRead(JOY_X_1) > 900 && analogRead(JOY_X_2) > 900)) {
+      joystick_in_control = true;
+      overridden = true;
+    }
   }
-  // V2 should be around half the voltage, i.e. 2.5 V = 512. A large value indicates that the joystick is not connected.
-  if (analogRead(JOY_V2) > 900) {
-    joystick_in_control = false;
-  }
-
   if (pwm_value_x > 800 && pwm_value_y > 800) {
     max_x = max(max_x, pwm_value_x);
     min_x = min(min_x, pwm_value_x);
@@ -134,16 +134,23 @@ void loop() {
   */
   Serial.print("Switch: ");
   Serial.print(pwm_value_switch);
+  Serial.print(" joystick_in_control: ");
+  Serial.print(joystick_in_control);
 
   Serial.print(" JOY_X_1: ");
-  Serial.print(analogRead(JOY_X_1));
-  Serial.print(" JOY_X_2: ");
-  Serial.print(analogRead(JOY_X_2));
+  Serial.print(joystick_output_x);
   Serial.print(" JOY_Y_1: ");
-  Serial.print(analogRead(JOY_Y_1));
-  Serial.print(" JOY_Y_2: ");
-  Serial.print(analogRead(JOY_Y_2));
-  Serial.print(" JOY_V2: ");
-  Serial.println(analogRead(JOY_V2));
-  
+  Serial.println(joystick_output_y);
+
+  /*
+    Serial.print(analogRead(JOY_X_1));
+    Serial.print(" JOY_X_2: ");
+    Serial.print(analogRead(JOY_X_2));
+    Serial.print(" JOY_Y_1: ");
+    Serial.print(analogRead(JOY_Y_1));
+    Serial.print(" JOY_Y_2: ");
+    Serial.print(analogRead(JOY_Y_2));
+    Serial.print(" JOY_V2: ");
+    Serial.println(analogRead(JOY_V2));
+  */
 }
