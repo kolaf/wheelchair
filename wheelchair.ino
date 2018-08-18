@@ -23,7 +23,7 @@ Adafruit_MCP4725 dac_y; // forwardaft
 #define MAXIMUM_VOLTAGE 3.5
 #define VOLTAGE_SWING 1.5 // measured from joystick 2.07
 #define REFERENCE_VOLTAGE 5
-#define MIDDLE_VOLTAGE 2.54 // measured from controller
+#define MIDDLE_VOLTAGE 2.5 // measured from controller
 
 volatile int pwm_value_x = 0;
 volatile int prev_time_x = 0;
