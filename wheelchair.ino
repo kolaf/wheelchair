@@ -1,3 +1,5 @@
+#include <EEPROM.h>
+
 
 #include "PinChangeInterrupt.h"
 #include <Adafruit_MCP4725.h>
@@ -12,19 +14,18 @@ Adafruit_MCP4725 dac_y; // forwardaft
 
 #define X_PIN 5 // we could choose any pin
 #define Y_PIN 6 // we could choose any pin
-#define SWITCH_PIN 3 // we could choose any pin
-#define CALIBRATION_PIN 4 // we could choose any pin
+#define SWITCH_PIN 3 // we could choose any pin, PWM1
+#define CALIBRATION_PIN 4 // we could choose any pin, PWM2
 
 #define JOY_X_1 A0
 #define JOY_X_2 A1
 #define JOY_Y_1 A2
-#define JOY_Y_2 A3
-#define JOY_V2 A4
+#define JOY_V2 A3
 
 #define MAXIMUM_VOLTAGE 3.5
 #define VOLTAGE_SWING 1.5 // measured from joystick 2.07
 #define REFERENCE_VOLTAGE 5
-#define MIDDLE_VOLTAGE 2.5 // measured from controller 2.54
+// #define MIDDLE_VOLTAGE 2.5 // measured from controller 2.54
 
 volatile int pwm_value_x = 0;
 volatile int prev_time_x = 0;
@@ -33,41 +34,62 @@ volatile int prev_time_y = 0;
 volatile int pwm_value_switch = 0;
 volatile int prev_time_switch = 0;
 int output_x = 0, output_y = 0, minimum_output = 0, maximum_output = 4095, joystick_output_x = 0, joystick_output_y = 0;
-int max_x = 0, min_x = 2000, max_y = 0, min_y = 2000, calibrated_maximum_x = 0,calibrated_minimum_x = 2000,calibrated_maximum_y = 0,calibrated_minimum_y = 2000;
+int max_x = 0, min_x = 2000, max_y = 0, min_y = 2000, calibrated_maximum_x = 0, calibrated_minimum_x = 2000, calibrated_maximum_y = 0, calibrated_minimum_y = 2000;
 bool joystick_in_control = true, overridden = true;  // Overridden so that we must explicitly take control with the RC transmitter.
 int eeAddress = 0;   //Location we want the data to be put.
-
+int read_centre_voltage = 0;
+float converted_centre_voltage = 0;
+long last_stored = 0;
 
 
 
 struct Calibration {
-  float min_x;
-  float min_y;
-  float max_x;
-  float max_y;
+  int min_x;
+  int min_y;
+  int max_x;
+  int max_y;
 };
 
 void storeCalibration() {
-  Calibration f = {
-    min_x,
-    min_y,
-    max_x,
-    max_y
-  };
-  EEPROM.put(eeAddress, f);
-  calibrated_minimum_x = min_x;
-  calibrated_maximum_x = max_x;
-  calibrated_minimum_y = min_y;
-  calibrated_maximum_y = max_y;
+  if (millis() - last_stored > 1000) { // Some sort of debounce
+    Calibration f = {
+      min_x,
+      min_y,
+      max_x,
+      max_y
+    };
+    EEPROM.put(eeAddress, f);
+    calibrated_minimum_x = min_x;
+    calibrated_maximum_x = max_x;
+    calibrated_minimum_y = min_y;
+    calibrated_maximum_y = max_y;
+    Serial.print("Saved calibration: ");
+    Serial.print(calibrated_minimum_x);
+    Serial.print(", ");
+    Serial.print(calibrated_maximum_x);
+    Serial.print(", ");
+    Serial.print(calibrated_minimum_y);
+    Serial.print(", ");
+    Serial.println(calibrated_maximum_y);
+    last_stored = millis();
+  }
 }
 
-void loadCalibration(){
+void loadCalibration() {
   Calibration f;
-  EEPROM.put(eeAddress, f);
+  EEPROM.get(eeAddress, f);
   calibrated_minimum_x = f.min_x;
   calibrated_maximum_x = f.max_x;
   calibrated_minimum_y = f.min_y;
   calibrated_maximum_y = f.max_y;
+  Serial.print("Loaded calibration: ");
+  Serial.print(calibrated_minimum_x);
+  Serial.print(", ");
+  Serial.print(calibrated_maximum_x);
+  Serial.print(", ");
+  Serial.print(calibrated_minimum_y);
+  Serial.print(", ");
+  Serial.println(calibrated_maximum_y);
 }
 
 
@@ -104,7 +126,7 @@ void setup() {
   pinMode(Y_PIN, INPUT_PULLUP);
   pinMode(SWITCH_PIN, INPUT_PULLUP);
   pinMode(CALIBRATION_PIN, INPUT_PULLUP);
-  loadCalibration();
+
   Serial.begin(115200);
   // Register interrupts
   attachPinChangeInterrupt(digitalPinToPinChangeInterrupt(X_PIN), change_x, CHANGE);
@@ -115,17 +137,31 @@ void setup() {
   dac_x.begin(MCP4725_ADDR_X); // The I2C Address: Run the I2C Scanner if you're not sure
   dac_y.begin(MCP4725_ADDR_Y);
   // Set up voltage range
-  minimum_output = (MIDDLE_VOLTAGE - VOLTAGE_SWING) * 4096 / REFERENCE_VOLTAGE;
-  maximum_output = (MIDDLE_VOLTAGE + VOLTAGE_SWING) * 4096 / REFERENCE_VOLTAGE;
+  read_centre_voltage = analogRead(JOY_V2);
+  converted_centre_voltage = 2.5; //map(read_centre_voltage, 0, 1023, 0, 5000) / 1000.0;
+  minimum_output = (converted_centre_voltage - VOLTAGE_SWING) * 4096 / REFERENCE_VOLTAGE;
+  maximum_output = (converted_centre_voltage + VOLTAGE_SWING) * 4096 / REFERENCE_VOLTAGE;
+  loadCalibration();
+  Serial.print("converted_centre_voltage: ");
+  Serial.println(converted_centre_voltage);
+  Serial.print("Maximum and minimum outputs: ");
+  Serial.print(minimum_output);
+  Serial.print(", ");
+  Serial.println(maximum_output);
 }
 
 
 void loop() {
   // Read and scale joystick input
+  //  read_centre_voltage = analogRead(JOY_V2);
+  //  converted_centre_voltage = map(read_centre_voltage, 0, 1023, 0, 5000) / 1000.0;
+  //  Serial.print("converted_centre_voltage: ");
+  //  Serial.println(converted_centre_voltage);
+
   joystick_output_x = map(analogRead(JOY_X_1), 0, 1023, minimum_output, maximum_output);
   joystick_output_y = map(analogRead(JOY_Y_1), 0, 1023, minimum_output, maximum_output);
   // Check state of RC transmitter switch to determine who is in control
-  if (pwm_value_switch < 1500) {
+  if (800 > pwm_value_switch > 1500) {
     joystick_in_control = true;
     overridden = false;
   } else if (!overridden) {
@@ -147,8 +183,8 @@ void loop() {
     min_y = min(min_y, pwm_value_y);
 
     // Map and scale RC input values to outputs
-    output_x = map(pwm_value_x, calibrated_min_x, calibrated_max_x, minimum_output, maximum_output);
-    output_y = map(pwm_value_y, calibrated_min_y, calibrated_max_y, minimum_output, maximum_output);
+    output_x = map(pwm_value_x, calibrated_minimum_x, calibrated_maximum_x, minimum_output, maximum_output);
+    output_y = map(pwm_value_y, calibrated_minimum_y, calibrated_maximum_y, minimum_output, maximum_output);
     output_x = min(output_x, maximum_output);
     output_x = max(output_x, minimum_output);
     output_y = min(output_y, maximum_output);
@@ -174,19 +210,20 @@ void loop() {
     Serial.print(", ");
     Serial.print(pwm_value_y);
     Serial.print(", ");
-    Serial.println(output_y);
+    Serial.print(output_y);
   */
   /*
-  Serial.print("Switch: ");
-  Serial.print(pwm_value_switch);
-  Serial.print(" joystick_in_control: ");
-  Serial.print(joystick_in_control);
-
-  Serial.print(" JOY_X_1: ");
-  Serial.print(joystick_output_x);
-  Serial.print(" JOY_Y_1: ");
-  Serial.println(joystick_output_y);
-*/
+    Serial.print("Switch: ");
+    Serial.print(pwm_value_switch);
+    Serial.print(" joystick_in_control: ");
+    Serial.print(joystick_in_control);
+  */
+  /*
+      Serial.print(" JOY_X_1: ");
+      Serial.print(joystick_output_x);
+      Serial.print(" JOY_Y_1: ");
+      Serial.println(joystick_output_y);
+  */
   /*
     Serial.print(analogRead(JOY_X_1));
     Serial.print(" JOY_X_2: ");
